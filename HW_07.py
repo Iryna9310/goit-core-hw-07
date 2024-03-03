@@ -27,7 +27,7 @@ class Birthday(Field):
             datetime.strptime(value, '%d.%m.%Y')
         except ValueError:
             raise ValueError("Invalid date format. Use DD.MM.YYYY")
-        super().__init__(value)
+        super().__init__(datetime.strptime(value, '%d.%m.%Y'))
 
 class Record: # Клас для зберігання інформації про контакт, включаючи ім'я та список телефонів.
     def __init__(self, name):
@@ -39,17 +39,17 @@ class Record: # Клас для зберігання інформації про
         self.phones.append(Phone(phone))
 
     def remove_phone(self, phone):
-        if phone in self.phones:
-            self.phones.remove(phone)
+        for ph in self.phones:
+            if ph.value == phone:
+                self.phones.remove(ph)
 
     def edit_phone(self, old_phone, new_phone):
-        phone_exists = True
-        for p in self.phones:
-            if p.value == old_phone:
-                phone_exists = False
+        for phone in self.phones:
+            if phone.value == old_phone:
+                phone.value = new_phone
                 break
 
-        if not phone_exists:
+        if not phone:
             raise ValueError("Phone number to edit does not exist.")
 
         if not new_phone.isdigit() or len(new_phone) != 10:
@@ -65,13 +65,12 @@ class Record: # Клас для зберігання інформації про
             return ph
       return None
 
-    def add_birthday(self, date):
-        if not isinstance(date, Birthday):
-            raise ValueError("Invalid birthday format.")
-        self.birthday = date
+    def add_birthday(self, birthday):
+        self.birthday = Birthday(birthday)
 
     def __str__(self):
-        return f"Contact name: {self.name.value}, phones: {'; '.join(p.value for p in self.phones)}"
+        birthday_str = self.birthday.value.strftime("%d.%m.%Y") if self.birthday else 'Not specified'
+        return f"Contact name: {self.name.value}, phones: {'; '.join(p.value for p in self.phones)}, birthday: {birthday_str}"
 
 def input_error(func):   # input_error декоратор для помилок
     def inner(*args, **kwargs):
@@ -124,27 +123,39 @@ class AddressBook(UserDict):  # Клас для зберігання та упр
                             birthdays.append({'name': record.name.value, 'birthday': datetime.strftime(bday_this_year, "%Y.%m.%d")})
         return birthdays
 
-    @input_error
-    def add_birthday(self, name, date):
-        record = self.find(name)
+@input_error
+def add_birthday(args, book):
+    name, birthday = args
+    try:
+        record = book.find(name)
         if record:
-            record.add_birthday(Birthday(date))
+            record.add_birthday(birthday)
+            print(f"Birthday added for {name}.")
         else:
-            raise ValueError("Contact not found.")
+            print(f"Contact {name} not found.")
+    except ValueError as e:
+        print(e)
 
-    @input_error
-    def show_birthday(self, name):
-        record = self.find(name)
-        if record:
-            return record.birthday.value
-        else:
-            raise ValueError("Contact not found.")
+@input_error
+def show_birthday(args, book):
+    name = args[0]
+    record = book.find(name)
+    if record and record.birthday:
+        print(f"{name}'s birthday: {record.birthday.value}")
+    elif record and not record.birthday:
+        print(f"{name} does not have a birthday specified.")
+    else:
+        print(f"Contact {name} not found.")
 
-    @input_error
-    def birthdays(self):
-        today = datetime.today().date()
-        upcoming_birthdays = self.get_upcoming_birthdays()
-        return [f"{b['name']}: {b['birthday']}" for b in upcoming_birthdays]
+@input_error
+def birthdays(args, book):
+    upcoming_birthdays = book.get_upcoming_birthdays()
+    if upcoming_birthdays:
+        print("Upcoming birthdays:")
+        for record in upcoming_birthdays:
+            print(f"The congratulation date for {record['name']} is {record['congratulation_date']}")
+    else:
+        print("No upcoming birthdays.")
 
 def parse_input(user_input):
     return user_input.strip().lower().split()
@@ -169,37 +180,49 @@ def main(): # чат бот
             record.add_phone(phone)
             book.add_record(record)
             print("Додано новий контакт")
-
+            
         elif command == "change": #Змінити телефонний номер для вказаного контакту.
-            name = input("Enter the name: ")
-            new_phone = input("Enter the new phone number: ")
+            if len(args) != 2:
+                print("Invalid number of arguments.")
+                continue
+            name, new_phone = args
             record = book.find(name)
             if record:
-                record.edit_phone(record.find_phone(name), new_phone)
+                old_phone = record.phones[0].value 
+                record.edit_phone(old_phone, new_phone)
                 print("Контакт змінено")
             else:
                 print("Контакт не знайдено")
 
         elif command == "phone":  #Показати телефонний номер для вказаного контакту.
-            print(book.find(name))
+            if len(args) != 1:
+                print("Invalid number of arguments.")
+                continue
+            name = args[0]
+            record = book.find(name)
+            if record:
+                print(f"{name}: {record.phones[0]}")
+            else:
+                print(f"Контакт не знайдено.")
 
         elif command == "all":  #Показати всі контакти в адресній книзі.
             for record in book.data.values():
                 print(record)
 
-        elif command == "add-birthday": # Додати дату народження для вказаного контакту.
-            if len(args) == 2:
-                name, date = args
-                book.add_birthday(name, date)
-                print("День народження додано")
-            else:
-                print("Invalid number of arguments for 'add-birthday' command.")
+        elif command == "add-birthday":  # Додати дату народження для вказаного контакту.
+            if len(args) != 2:
+                print("Invalid number of arguments.")
+                continue
+            add_birthday(args, book)
 
         elif command == "show-birthday": # Показати дату народження для вказаного контакту.
-            print(book.show_birthday(name))
+            if len(args) != 1:
+                print("Invalid number of arguments.")
+                continue
+            show_birthday(args, book)
 
         elif command == "birthdays":
-            print(book.birthdays())
+            birthdays(args, book)
 
         else:
             print("Invalid command.")
