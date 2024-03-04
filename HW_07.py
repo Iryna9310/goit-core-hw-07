@@ -49,16 +49,6 @@ class Record: # Клас для зберігання інформації про
                 phone.value = new_phone
                 break
 
-        if not phone:
-            raise ValueError("Phone number to edit does not exist.")
-
-        if not new_phone.isdigit() or len(new_phone) != 10:
-            raise ValueError("New phone number must be a 10-digit number.")
-
-        for ph in self.phones:
-            if ph.value == old_phone:
-                ph.value = new_phone
-
     def find_phone(self, phone):
       for ph in self.phones:
           if ph.value == phone:
@@ -108,19 +98,19 @@ class AddressBook(UserDict):  # Клас для зберігання та упр
 
         for record in self.data.values():
             if isinstance(record.birthday, Birthday):
-                bday = datetime.strptime(record.birthday.value, "%d.%m.%Y").date()
+                bday = record.birthday.value.date()
                 bday_this_year = datetime(today.year, bday.month, bday.day).date()
 
-                if 0 <= (bday_this_year - today).days < 7:
-                    if datetime.weekday(bday_this_year) < 5:
+            if 0 <= (bday_this_year - today).days < 7:
+                if datetime.weekday(bday_this_year) < 5:
+                    birthdays.append({'name': record.name.value, 'birthday': datetime.strftime(bday_this_year, "%Y.%m.%d")})
+                else:
+                    if datetime.weekday(bday_this_year) == 5:  # Saturday bday
+                        bday_this_year = datetime(bday_this_year.year, bday_this_year.month, bday_this_year.day + 2).date()
                         birthdays.append({'name': record.name.value, 'birthday': datetime.strftime(bday_this_year, "%Y.%m.%d")})
-                    else:
-                        if datetime.weekday(bday_this_year) == 5:  # Saturday bday
-                            bday_this_year = datetime(bday_this_year.year, bday_this_year.month, bday_this_year.day + 2).date()
-                            birthdays.append({'name': record.name.value, 'birthday': datetime.strftime(bday_this_year, "%Y.%m.%d")})
-                        elif datetime.weekday(bday_this_year) == 6:  # Sunday bday
-                            bday_this_year = datetime(bday_this_year.year, bday_this_year.month, bday_this_year.day + 1).date()
-                            birthdays.append({'name': record.name.value, 'birthday': datetime.strftime(bday_this_year, "%Y.%m.%d")})
+                    elif datetime.weekday(bday_this_year) == 6:  # Sunday bday
+                        bday_this_year = datetime(bday_this_year.year, bday_this_year.month, bday_this_year.day + 1).date()
+                        birthdays.append({'name': record.name.value, 'birthday': datetime.strftime(bday_this_year, "%Y.%m.%d")})
         return birthdays
 
 @input_error
@@ -153,9 +143,23 @@ def birthdays(args, book):
     if upcoming_birthdays:
         print("Upcoming birthdays:")
         for record in upcoming_birthdays:
-            print(f"The congratulation date for {record['name']} is {record['congratulation_date']}")
+            name = record['name']
+            birthday = record['birthday']
+            print(f"The congratulation date for {name} is {birthday}")
     else:
         print("No upcoming birthdays.")
+
+@input_error
+def add_contact(args, book: AddressBook):
+    name, phone = args
+
+    record = book.find(name)
+    if not record:
+        record = Record(name)
+        book.add_record(record)
+
+    record.add_phone(phone)
+    print("Контакт додано.")
 
 def parse_input(user_input):
     return user_input.strip().lower().split()
@@ -175,20 +179,15 @@ def main(): # чат бот
             print("How can I help you?")
 
         elif command == "add": # Додати новий контакт з іменем та телефонним номером.
-            name, phone,  = args
-            record = Record(name)
-            record.add_phone(phone)
-            book.add_record(record)
-            print("Додано новий контакт")
+            add_contact(args, book)
             
-        elif command == "change": #Змінити телефонний номер для вказаного контакту.
-            if len(args) != 2:
+        elif command == "change":
+            if len(args) != 3:
                 print("Invalid number of arguments.")
                 continue
-            name, new_phone = args
+            name, old_phone, new_phone = args
             record = book.find(name)
             if record:
-                old_phone = record.phones[0].value 
                 record.edit_phone(old_phone, new_phone)
                 print("Контакт змінено")
             else:
@@ -201,7 +200,10 @@ def main(): # чат бот
             name = args[0]
             record = book.find(name)
             if record:
-                print(f"{name}: {record.phones[0]}")
+                if record.phones:
+                    print(f"{name}: {'; '.join(str(phone) for phone in record.phones)}")
+                else:
+                    print(f"{name} has no phone numbers.")
             else:
                 print(f"Контакт не знайдено.")
 
