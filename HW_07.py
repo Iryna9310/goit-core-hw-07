@@ -101,16 +101,17 @@ class AddressBook(UserDict):  # Клас для зберігання та упр
                 bday = record.birthday.value.date()
                 bday_this_year = datetime(today.year, bday.month, bday.day).date()
 
-            if 0 <= (bday_this_year - today).days < 7:
-                if datetime.weekday(bday_this_year) < 5:
-                    birthdays.append({'name': record.name.value, 'birthday': datetime.strftime(bday_this_year, "%Y.%m.%d")})
-                else:
-                    if datetime.weekday(bday_this_year) == 5:  # Saturday bday
-                        bday_this_year = datetime(bday_this_year.year, bday_this_year.month, bday_this_year.day + 2).date()
+                if 0 <= (bday_this_year - today).days < 7:
+                    if datetime.weekday(bday_this_year) < 5:
                         birthdays.append({'name': record.name.value, 'birthday': datetime.strftime(bday_this_year, "%Y.%m.%d")})
-                    elif datetime.weekday(bday_this_year) == 6:  # Sunday bday
-                        bday_this_year = datetime(bday_this_year.year, bday_this_year.month, bday_this_year.day + 1).date()
-                        birthdays.append({'name': record.name.value, 'birthday': datetime.strftime(bday_this_year, "%Y.%m.%d")})
+                    else:
+                        if datetime.weekday(bday_this_year) == 5:  # Saturday bday
+                            bday_this_year = datetime(bday_this_year.year, bday_this_year.month, bday_this_year.day + 2).date()
+                            birthdays.append({'name': record.name.value, 'birthday': datetime.strftime(bday_this_year, "%Y.%m.%d")})
+                        elif datetime.weekday(bday_this_year) == 6:  # Sunday bday
+                            bday_this_year = datetime(bday_this_year.year, bday_this_year.month, bday_this_year.day + 1).date()
+                            birthdays.append({'name': record.name.value, 'birthday': datetime.strftime(bday_this_year, "%Y.%m.%d")})
+
         return birthdays
 
 @input_error
